@@ -38,11 +38,6 @@ export const FlashCardPage = () => {
     setCards(c);
   }
   )}, []);
-  if (cards.length == 0) {
-    return (
-      <NoCardsMessage />
-    );
-  }
   return (
     <FlashCardDeck cards={cards}/>
   );
@@ -50,18 +45,20 @@ export const FlashCardPage = () => {
 const FlashCardDeck: React.FC<FlashCardDeckProps> = ({ cards }) => {  
   const [currentIndex, setCurrentIndex] = useState<number>(0);  
   const [localShowBack, setLocalShowBack] = useState(false);  
+  const [shouldNext, setShouldNext] = useState<boolean>(false);
 
   // Handle switching to the next card  
-  const handleNext = () => {  
-    if (cards.length === 0) return;  
-
-    setCurrentIndex(prev => (prev + 1) % cards.length);  
+  if (shouldNext) {  
+    setCurrentIndex(prev => (prev + 1));  
     setLocalShowBack(false); // Force hide the answer when switching  
+    setShouldNext(false);
   };  
-  if (cards.length == 0) {
-    return (<></>);
-  }
 
+  if (currentIndex >= cards.length) {
+    return (
+      <NoCardsMessage />
+    );
+  }
   // Get the current card content  
   const currentCard = cards[currentIndex];  
 
@@ -76,28 +73,22 @@ const FlashCardDeck: React.FC<FlashCardDeckProps> = ({ cards }) => {
       <FlipCard   
         key={currentIndex}  // Key: Reset internal state via key change  
         card={currentCard}
+        setShouldNext={setShouldNext}
       />  
 
-      {/* Next button */}  
-      <button   
-        onClick={handleNext}  
-        disabled={cards.length <= 1} // Disable for single card  
-        className="next-button"  
-      >  
-        Next →  
-      </button>  
     </div>  
   );  
 };  
 
 interface FlashCardProps {
   card: Card;
+  setShouldNext: React.Dispatch<React.SetStateAction<boolean>>
 }
 
-const FlipCard = ({card}: FlashCardProps) => {
+const FlipCard = ({card, setShouldNext}: FlashCardProps) => {
   const [showBack, setShowBack] = useState(false);
   const onRate = (score: number) => {
-
+    setShouldNext(true);
   };
 
   // Shared callback handler for all rating buttons
@@ -123,12 +114,14 @@ const FlipCard = ({card}: FlashCardProps) => {
         dangerouslySetInnerHTML={{ __html: card.front }}
       />
       
-      <button 
-        onClick={() => setShowBack(!showBack)}
-        style={{ margin: '10px 0' }}
-      >
-        {showBack ? 'Hide Answer' : 'Show Answer'}
-      </button>
+      {!showBack &&
+        <button 
+          onClick={() => setShowBack(!showBack)}
+          style={{ margin: '10px 0' }}
+        >
+          {showBack ? 'Hide Answer' : 'Show Answer'}
+        </button>
+      }
 
       {showBack && (
         <div>

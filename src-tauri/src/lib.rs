@@ -10,7 +10,11 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
-        .invoke_handler(tauri::generate_handler![greet, open_card_file])
+        .invoke_handler(tauri::generate_handler![
+            greet,
+            open_card_file,
+            update_card_status
+        ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
@@ -38,6 +42,8 @@ fn greet() -> Result<(), String> {
     Ok(())
 }
 
+#[tauri::command]
+fn update_card_status(hash: Hash, quality: u32) {}
 fn today_timestamp() -> i64 {
     let now = Utc::now();
 
@@ -95,15 +101,12 @@ fn open_card_file(file_path: &str) -> Result<Vec<Card>, String> {
 
 fn insert_and_fetch_db(cards: Vec<Card>) -> Result<Vec<Card>, String> {
     let conn = Connection::open(DB_NAME).map_err(|why| why.to_string())?;
-    insert_new_cards(&conn, &cards).map_err(|_|{"Failed to insert cards.".to_string()})?;
+    insert_new_cards(&conn, &cards).map_err(|_| "Failed to insert cards.".to_string())?;
     let cards = fetch_review_cards(&conn, cards)?;
     Ok(cards)
 }
 
-fn fetch_review_cards(
-    conn: &Connection,
-    cards: Vec<Card>,
-) -> Result<Vec<Card>, String> {
+fn fetch_review_cards(conn: &Connection, cards: Vec<Card>) -> Result<Vec<Card>, String> {
     // 若输入卡片为空，直接返回空 Vec
     if cards.is_empty() {
         return Ok(Vec::new());
@@ -147,7 +150,6 @@ fn fetch_review_cards(
 }
 
 fn insert_new_cards(conn: &Connection, cards: &[Card]) -> Result<()> {
-
     let rep_init = 0;
     let factor_init = 2.5;
     let interval_init = 0;
@@ -156,12 +158,12 @@ fn insert_new_cards(conn: &Connection, cards: &[Card]) -> Result<()> {
     let mut stmt = conn.prepare(
         "INSERT INTO cards (sha, repetitions, factor, interval, due)
          VALUES (?1, ?2, ?3, ?4, ?5)
-         ON CONFLICT(sha) DO NOTHING"
+         ON CONFLICT(sha) DO NOTHING",
     )?;
 
     for card in cards {
         stmt.execute(params![
-            card.hash,        // SHA256 必须为 64 字符字符串
+            card.hash, // SHA256 必须为 64 字符字符串
             rep_init,
             factor_init,
             interval_init,
