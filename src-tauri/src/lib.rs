@@ -1,10 +1,13 @@
 use chrono::{Datelike, TimeZone, Utc};
 use fancy_regex::Regex;
 use rusqlite::{params, params_from_iter, Connection, Result};
-use serde::Serialize;
+use serde::{de::DeserializeOwned, Deserialize, Serialize};
+use tempfile::NamedTempFile;
+use serde_json::json;
 use sha2::{Digest, Sha256};
-use std::{collections::HashMap, fs::File, io::Read};
+use std::{collections::HashMap, fs::File, io::{Read, Write}, path::{Path, PathBuf}};
 const DB_NAME: &str = "marki.db";
+const DB_DIR: &str = "datas";
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -17,6 +20,67 @@ pub fn run() {
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
+}
+
+pub struct ObjectDB {
+    path: PathBuf,
+}
+
+impl ObjectDB {
+    /// Create new object database
+    pub fn new(path: &Path) -> std::io::Result<ObjectDB> {
+        if !path.exists() {
+            std::fs::create_dir(path)?;
+        } else if !path.is_dir() {
+            return Err(std::io::Error::new(std::io::ErrorKind::AddrInUse, "path is a file"));
+        }
+        let path_buf = path.to_path_buf();
+        Ok(ObjectDB { path: path_buf })
+    }
+
+    /// Store object in database
+    pub fn store(&self, hash: &Hash, obj: &impl Serialize) -> std::io::Result<()> {
+        let (dir_part, file_part) = hash.split_at(2);
+
+        // Build storage path
+        let obj_dir = self.path.join(dir_part);
+        let obj_path = (&obj_dir).join(file_part);
+
+        if !obj_dir.exists() {
+            std::fs::create_dir(&obj_dir)?;
+        }
+
+        let tmp_obj_path = obj_dir.join("tmp");
+        let mut file = std::fs::File::create(&tmp_obj_path).unwrap();
+        let json = json!(obj).to_string();
+        file.write_all(&json.into_bytes())?;
+        file.flush()?;
+        std::fs::rename(tmp_obj_path, obj_path)?;
+        Ok(())
+    }
+
+    /// Retrieve object from database
+    pub fn retrieve<T: DeserializeOwned, E: AsRef<Hash>>(&self, hash: E) -> std::io::Result<T> {
+        // Validate SHA format
+        let encoded_sha = &hash.as_ref();
+        if encoded_sha.len() != 64 || !encoded_sha.chars().all(|c| c.is_ascii_hexdigit()) {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidInput,
+                "Invalid SHA hash format",
+            ));
+        }
+
+        // Parse path
+        let (dir_part, file_part) = encoded_sha.split_at(2);
+        let obj_path = self.path.join(dir_part).join(file_part);
+
+        // Read file
+        let mut file = File::open(obj_path)?;
+        let mut contents = Vec::new();
+        file.read_to_end(&mut contents)?;
+        let obj :T = serde_json::from_slice(&contents)?;
+        Ok(obj)
+    }
 }
 
 #[tauri::command]
@@ -42,7 +106,7 @@ fn greet() -> Result<(), String> {
     Ok(())
 }
 
-#[derive(Debug)]
+#[derive(Debug, Serialize, Deserialize)]
 struct CardStatus {
     repetitions: i32,
     factor: f64,
@@ -227,26 +291,21 @@ fn fetch_review_cards(conn: &Connection, cards: Vec<Card>) -> Result<Vec<Card>, 
     Ok(result)
 }
 
-fn insert_new_cards(conn: &Connection, cards: &[Card]) -> Result<()> {
+fn insert_new_cards(conn: &Connection, cards: &[Card]) -> Result<(), ()> {
     let rep_init = 0;
     let factor_init = 2.5;
     let interval_init = 0;
     let today_timestamp = today_timestamp();
 
-    let mut stmt = conn.prepare(
-        "INSERT INTO cards (sha, repetitions, factor, interval, due)
-         VALUES (?1, ?2, ?3, ?4, ?5)
-         ON CONFLICT(sha) DO NOTHING",
-    )?;
-
+    let card_status = CardStatus {
+        repetitions: rep_init,
+        factor: factor_init,
+        interval: interval_init,
+        due: today_timestamp,
+    };
+    let obj_db = ObjectDB::new(Path::new(DB_DIR)).map_err(|why|{()})?;
     for card in cards {
-        stmt.execute(params![
-            card.hash, // SHA256 必须为 64 字符字符串
-            rep_init,
-            factor_init,
-            interval_init,
-            today_timestamp,
-        ])?;
+        obj_db.store(&card.hash, &card_status).unwrap();
     }
     Ok(())
 }
