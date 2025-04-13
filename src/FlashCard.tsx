@@ -44,13 +44,11 @@ export const FlashCardPage = () => {
 }
 const FlashCardDeck: React.FC<FlashCardDeckProps> = ({ cards }) => {  
   const [currentIndex, setCurrentIndex] = useState<number>(0);  
-  const [localShowBack, setLocalShowBack] = useState(false);  
   const [shouldNext, setShouldNext] = useState<boolean>(false);
 
   // Handle switching to the next card  
   if (shouldNext) {  
     setCurrentIndex(prev => (prev + 1));  
-    setLocalShowBack(false); // Force hide the answer when switching  
     setShouldNext(false);
   };  
 

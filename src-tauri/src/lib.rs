@@ -267,7 +267,7 @@ fn insert_new_cards(cards: &[Card]) -> Result<(), ()> {
         interval: interval_init,
         due: today_timestamp,
     };
-    let obj_db = ObjectDB::new(Path::new(DB_DIR)).map_err(|why| ())?;
+    let obj_db = ObjectDB::new(Path::new(DB_DIR)).map_err(|_| ())?;
     for card in cards {
         if !obj_db.exists(&card.hash) {
             obj_db.store(&card.hash, &card_status).unwrap();
