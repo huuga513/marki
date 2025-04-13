@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useLocation } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { invoke } from "@tauri-apps/api/core";
 
 interface Card {
@@ -12,6 +12,21 @@ interface FlashCardDeckProps {
   cards: Array<Card>; // Data structure for the card deck  
 }  
 
+function NoCardsMessage() {
+  const navigate = useNavigate();
+
+  return (
+    <div>
+      <h2>There are no cards to study today.</h2>
+      <button 
+        onClick={() => navigate('/')}
+      >
+        Back
+      </button>
+    </div>
+  );
+}
+
 export const FlashCardPage = () => {
   const location = useLocation();
   const {filePath} = location.state || {};
@@ -23,6 +38,11 @@ export const FlashCardPage = () => {
     setCards(c);
   }
   )}, []);
+  if (cards.length == 0) {
+    return (
+      <NoCardsMessage />
+    );
+  }
   return (
     <FlashCardDeck cards={cards}/>
   );
