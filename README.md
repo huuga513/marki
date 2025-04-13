@@ -15,6 +15,9 @@ https://github.com/thyagoluciano/sm2
 
 https://github.com/TimKingNF/RemNote-Tutorials-Translated/blob/master/AnKi-SM2%20%E9%97%B4%E9%9A%94%E9%87%8D%E5%A4%8D%E8%AE%B0%E5%BF%86%E7%AE%97%E6%B3%95.md
 
+TODO: for taking advantages of git system to sync learning status, there is a plan to use filesystem insteading of sqlite to store such datas.
+
+Learning status of a card will be stored in a file in filesystem.
 ```sql
 CREATE TABLE cards {
     sha CHAR(64) PRIMARY KEY,
