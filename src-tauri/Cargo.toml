@@ -27,4 +27,5 @@ tauri-plugin-dialog = "2"
 sha2 = "0.10.8"
 chrono = "0.4.40"
 rusqlite = { version = "0.34.0", features = ["bundled"] }
+hex = "0.4.3"
 

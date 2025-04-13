@@ -1,9 +1,10 @@
-use std::{fs::File, io::Read};
-use sha2::{Sha256, Digest};
 use chrono::{Datelike, TimeZone, Utc};
 use fancy_regex::Regex;
+use rusqlite::{params, Connection, Result};
 use serde::Serialize;
-use rusqlite::{Connection, Result};
+use sha2::{Digest, Sha256};
+use std::{fs::File, io::Read};
+const DB_NAME: &str = "marki.db";
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -16,8 +17,9 @@ pub fn run() {
 
 #[tauri::command]
 fn greet() -> Result<(), String> {
-    let conn = Connection::open("marki.db").map_err(|why|{why.to_string()})?;
-    conn.execute("
+    let conn = Connection::open("marki.db").map_err(|why| why.to_string())?;
+    conn.execute(
+        "
     CREATE TABLE IF NOT EXISTS cards (
     sha BINARY(32) PRIMARY KEY,
         -- the sha256 of the card content
@@ -29,45 +31,96 @@ fn greet() -> Result<(), String> {
         --  indicates the number of days to wait between reviews.
     due BIGINT NOT NULL
         -- unix timestamp rounded to days
-    );", []).map_err(|why|{why.to_string()})?;
+    );",
+        [],
+    )
+    .map_err(|why| why.to_string())?;
     Ok(())
 }
 
-
 fn today_timestamp() -> i64 {
     let now = Utc::now();
-    
+
     let year = now.year();
     let month = now.month();
     let day = now.day();
-    
-    let today_midnight = Utc
-        .with_ymd_and_hms(year, month, day, 0, 0, 0).unwrap();
-    
+
+    let today_midnight = Utc.with_ymd_and_hms(year, month, day, 0, 0, 0).unwrap();
+
     let timestamp = today_midnight.timestamp();
     timestamp
+}
+
+struct Hash(String);
+struct Card {
+    hash: Hash,
+    front: String,
+    back: String,
+}
+
+impl Card {
+    fn new<S: AsRef<str>>(front: S, back: S) -> Card {
+        let front = front.as_ref();
+        let back = back.as_ref();
+        let mut hasher = Sha256::new();
+        hasher.update(front);
+        hasher.update(back);
+        let hash = hasher.finalize();
+        let hash = Hash(hex::encode(hash));
+        Card {
+            hash: hash,
+            front: front.to_owned(),
+            back: back.to_owned(),
+        }
+    }
 }
 
 #[tauri::command]
 /* Open a card file, returns cards should be reviewed today */
 fn open_card_file(file_path: &str) -> Result<Vec<(String, String)>, String> {
-    let mut file = File::open(file_path).map_err(|why|{
-        why.to_string()
-    })?;
+    let mut file = File::open(file_path).map_err(|why| why.to_string())?;
     let mut contents = String::new();
-    file.read_to_string(&mut contents).map_err(|why|{
-        why.to_string()
-    })?;
+    file.read_to_string(&mut contents)
+        .map_err(|why| why.to_string())?;
     let contents = contents.replace("\r\n", "\n");
-    let qas = extract_qa(&contents).map_err(|why|{
-        why.to_string()
-    })?;
+    let qas = extract_qa(&contents).map_err(|why| why.to_string())?;
+    let cards: Vec<Card> = qas
+        .iter()
+        .map(|qa: &(String, String)| Card::new(&qa.0, &qa.1))
+        .collect();
+
     Ok(qas)
 }
+
+fn insert_new_cards(conn: &Connection, cards: &[Card]) -> Result<()> {
+
+    let rep_init = 0;
+    let factor_init = 2.5;
+    let interval_init = 0;
+    let today_timestamp = today_timestamp();
+
+    let mut stmt = conn.prepare(
+        "INSERT INTO cards (sha, repetitions, factor, interval, due)
+         VALUES (?1, ?2, ?3, ?4, ?5)
+         ON CONFLICT(sha) DO NOTHING"
+    )?;
+
+    for card in cards {
+        stmt.execute(params![
+            card.hash.0,        // SHA256 必须为 64 字符字符串
+            rep_init,
+            factor_init,
+            interval_init,
+            today_timestamp,
+        ])?;
+    }
+    Ok(())
+}
+
 fn extract_qa(input: &str) -> Result<Vec<(String, String)>, Box<dyn std::error::Error>> {
     // Thanks: https://github.com/ObsidianToAnki/Obsidian_to_Anki/wiki/Question-answer-style
     let re = Regex::new(r"(?m)^Q: ((?:.+\n)*)\n*A: (.+(?:\n(?:^.{1,3}$|^.{4}(?<!<!--).*))*)")?;
-    
+
     let mut results = Vec::new();
     for capture in re.captures_iter(input) {
         let capture = capture?;

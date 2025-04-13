@@ -17,7 +17,7 @@ https://github.com/TimKingNF/RemNote-Tutorials-Translated/blob/master/AnKi-SM2%2
 
 ```sql
 CREATE TABLE cards {
-    sha BINARY(32) PRIMARY KEY,
+    sha CHAR(64) PRIMARY KEY,
         -- the sha256 of the card content
     repetitions            INTEGER NOT NULL,
         -- the number of times the information has been reviewed prior to this review
