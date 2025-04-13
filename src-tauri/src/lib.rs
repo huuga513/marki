@@ -3,7 +3,12 @@ use fancy_regex::Regex;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use serde_json::json;
 use sha2::{Digest, Sha256};
-use std::{fs::File, io::{Read, Write}, path::{Path, PathBuf}};
+use std::{
+    fs::File,
+    io::{Read, Write},
+    path::{Path, PathBuf},
+};
+use walkdir::WalkDir;
 const DB_DIR: &str = "datas";
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -12,7 +17,7 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .invoke_handler(tauri::generate_handler![
             greet,
-            open_card_file,
+            open_card_dir,
             update_card_status
         ])
         .run(tauri::generate_context!())
@@ -32,7 +37,10 @@ impl ObjectDB {
         if !path.exists() {
             std::fs::create_dir(&path)?;
         } else if !path.is_dir() {
-            return Err(std::io::Error::new(std::io::ErrorKind::AddrInUse, "path is a file"));
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::AddrInUse,
+                "path is a file",
+            ));
         }
         Ok(ObjectDB { path: path })
     }
@@ -77,7 +85,7 @@ impl ObjectDB {
         let mut file = File::open(obj_path)?;
         let mut contents = Vec::new();
         file.read_to_end(&mut contents)?;
-        let obj :T = serde_json::from_slice(&contents)?;
+        let obj: T = serde_json::from_slice(&contents)?;
         Ok(obj)
     }
 
@@ -110,8 +118,8 @@ fn calculate_new_status(prev: CardStatus, quality: u32) -> CardStatus {
         // Correct answer: update interval and repetition count
         let new_reps = prev.repetitions + 1;
         let new_interval = match prev.repetitions {
-            0 => 1,                        // First review: 1 day
-            1 => 6,                        // Second review: 6 days
+            0 => 1,                                                  // First review: 1 day
+            1 => 6,                                                  // Second review: 6 days
             _ => (prev.interval as f64 * prev.factor).ceil() as i32, // Subsequent reviews: old interval × factor
         };
         // Calculate new factor
@@ -138,12 +146,14 @@ fn calculate_new_status(prev: CardStatus, quality: u32) -> CardStatus {
 }
 #[tauri::command]
 fn update_card_status(hash: Hash, quality: u32) -> Result<(), String> {
-    let obj_db = ObjectDB::new(Path::new(DB_DIR)).map_err(|e|{e.to_string()})?;
-    let current_status: CardStatus = obj_db.retrieve(&hash).map_err(|e|{e.to_string()})?;
+    let obj_db = ObjectDB::new(Path::new(DB_DIR)).map_err(|e| e.to_string())?;
+    let current_status: CardStatus = obj_db.retrieve(&hash).map_err(|e| e.to_string())?;
     // 2. 计算新状态
     let new_status = calculate_new_status(current_status, quality);
     // 3. 更新数据库
-    obj_db.store(&hash, &new_status).map_err(|e|{e.to_string()})?;
+    obj_db
+        .store(&hash, &new_status)
+        .map_err(|e| e.to_string())?;
     Ok(())
 }
 fn today_timestamp() -> i64 {
@@ -185,8 +195,22 @@ impl Card {
 }
 
 #[tauri::command]
+fn open_card_dir(dir: &str) -> Result<Vec<Card>, String> {
+    let mut cards:Vec<Card> = Vec::new();
+    for entry in WalkDir::new(dir)
+        .into_iter()
+        .filter_map(|e| e.ok())
+        .filter(|f| f.path().extension().map(|ext| ext == "md").unwrap_or(false))
+    {
+       match open_card_file(entry.path()) {
+            Ok(c) => {cards.extend(c.into_iter());}
+            Err(why) => {panic!("{why}");}
+        }
+    }
+    Ok(cards)
+}
 /* Open a card file, returns cards should be reviewed today */
-fn open_card_file(file_path: &str) -> Result<Vec<Card>, String> {
+fn open_card_file(file_path: &Path) -> Result<Vec<Card>, String> {
     let mut file = File::open(file_path).map_err(|why| why.to_string())?;
     let mut contents = String::new();
     file.read_to_string(&mut contents)
@@ -213,15 +237,21 @@ fn fetch_review_cards(cards: Vec<Card>) -> Result<Vec<Card>, String> {
         return Ok(Vec::new());
     }
     let now_timestamp = Utc::now().timestamp();
-    let obj_db = ObjectDB::new(Path::new(DB_DIR)).map_err(|e|{e.to_string()})?;
+    let obj_db = ObjectDB::new(Path::new(DB_DIR)).map_err(|e| e.to_string())?;
 
-    let result = cards.into_iter().filter(|card|{
-        if let Ok(card_status) = obj_db.retrieve::<CardStatus, _>(&card.hash).map_err(|e|{e.to_string()}) {
-            card_status.due <= now_timestamp
-        } else {
-            false
-        }
-    }).collect();
+    let result = cards
+        .into_iter()
+        .filter(|card| {
+            if let Ok(card_status) = obj_db
+                .retrieve::<CardStatus, _>(&card.hash)
+                .map_err(|e| e.to_string())
+            {
+                card_status.due <= now_timestamp
+            } else {
+                false
+            }
+        })
+        .collect();
     Ok(result)
 }
 
@@ -237,7 +267,7 @@ fn insert_new_cards(cards: &[Card]) -> Result<(), ()> {
         interval: interval_init,
         due: today_timestamp,
     };
-    let obj_db = ObjectDB::new(Path::new(DB_DIR)).map_err(|why|{()})?;
+    let obj_db = ObjectDB::new(Path::new(DB_DIR)).map_err(|why| ())?;
     for card in cards {
         if !obj_db.exists(&card.hash) {
             obj_db.store(&card.hash, &card_status).unwrap();

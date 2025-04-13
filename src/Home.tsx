@@ -19,7 +19,7 @@ const FileSelectButton = () => {
         console.log('已选择文件:', filePath);
         navgiate('flash-card-deck', {
           state: {
-            filePath: filePath
+            dir: filePath
           }
         });
 
@@ -69,7 +69,7 @@ async function selectFile(): Promise<string | null> {
   // Open a dialog
   const file = await open({
     multiple: false,
-    directory: false,
+    directory: true,
   });
   console.log(file);
   return file;

@@ -29,12 +29,12 @@ function NoCardsMessage() {
 
 export const FlashCardPage = () => {
   const location = useLocation();
-  const {filePath} = location.state || {};
-  if (filePath == null) {
+  const {dir} = location.state || {};
+  if (dir == null) {
     return (<h1>Error</h1>);
   }
   const [cards, setCards] = useState<Card[]>([]);
-  useEffect(() => {invoke<Card[]>('open_card_file', {filePath: filePath}).then((c:Card[]) => {
+  useEffect(() => {invoke<Card[]>('open_card_dir', {dir: dir}).then((c:Card[]) => {
     setCards(c);
   }
   )}, []);
