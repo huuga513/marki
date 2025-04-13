@@ -88,6 +88,10 @@ interface FlashCardProps {
 const FlipCard = ({card, setShouldNext}: FlashCardProps) => {
   const [showBack, setShowBack] = useState(false);
   const onRate = (score: number) => {
+    invoke('update_card_status', {
+      hash: card.hash,
+      quality: score,
+    });
     setShouldNext(true);
   };
 

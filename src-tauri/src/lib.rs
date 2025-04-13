@@ -42,8 +42,86 @@ fn greet() -> Result<(), String> {
     Ok(())
 }
 
+#[derive(Debug)]
+struct CardStatus {
+    repetitions: i32,
+    factor: f64,
+    interval: i32,
+    due: i64,
+}
+
+fn calculate_new_status(prev: CardStatus, quality: u32) -> CardStatus {
+    let (reps, interval, factor) = if quality >= 3 {
+        // Correct answer: update interval and repetition count
+        let new_reps = prev.repetitions + 1;
+        let new_interval = match prev.repetitions {
+            0 => 1,                        // First review: 1 day
+            1 => 6,                        // Second review: 6 days
+            _ => (prev.interval as f64 * prev.factor).ceil() as i32, // Subsequent reviews: old interval × factor
+        };
+        // Calculate new factor
+        let q = quality as f64;
+        let ease_change = 0.1 - (5.0 - q) * (0.08 + (5.0 - q) * 0.02);
+        (new_reps, new_interval, prev.factor + ease_change)
+    } else {
+        // Incorrect answer: reset repetition count and interval
+        (0, 1, prev.factor)
+    };
+
+    // Minimum factor is 1.3
+    let factor = factor.max(1.3);
+
+    // Calculate new due date (current time + new interval in days)
+    let due = prev.due + (interval as i64) * 60 * 60 * 24;
+
+    CardStatus {
+        repetitions: reps,
+        interval,
+        factor,
+        due,
+    }
+}
 #[tauri::command]
-fn update_card_status(hash: Hash, quality: u32) {}
+fn update_card_status(hash: Hash, quality: u32) -> Result<(), String> {
+    let conn = Connection::open(DB_NAME).map_err(|why| why.to_string())?;
+    // 1. 获取当前数据库中的卡片状态
+    let mut stmt = conn.prepare(
+        "SELECT repetitions, factor, interval, due 
+         FROM cards WHERE sha = ?1"
+    ).map_err(|e|{e.to_string()})?;
+    
+    let current_status: CardStatus = stmt.query_row(
+        params![hash], 
+        |row| Ok(CardStatus {
+            repetitions: row.get(0)?,
+            factor: row.get(1)?,
+            interval: row.get(2)?,
+            due: row.get(3)?,
+        })
+    ).map_err(|e|{e.to_string()})?;
+
+    // 2. 计算新状态（此处为占位符逻辑）
+    let new_status = calculate_new_status(current_status, quality);
+
+    // 3. 更新数据库
+    conn.execute(
+        "UPDATE cards 
+         SET repetitions = ?1, 
+             factor = ?2, 
+             interval = ?3, 
+             due = ?4 
+         WHERE sha = ?5",
+        params![
+            new_status.repetitions,
+            new_status.factor,
+            new_status.interval,
+            new_status.due,
+            hash
+        ],
+    ).map_err(|e|{e.to_string()})?;
+
+    Ok(())
+}
 fn today_timestamp() -> i64 {
     let now = Utc::now();
 
