@@ -26,13 +26,15 @@ pub struct ObjectDB {
 impl ObjectDB {
     /// Create new object database
     pub fn new(path: &Path) -> std::io::Result<ObjectDB> {
+        let exe_path = std::env::current_exe().unwrap();
+        let exe_dir = exe_path.parent().unwrap();
+        let path = exe_dir.join(path);
         if !path.exists() {
-            std::fs::create_dir(path)?;
+            std::fs::create_dir(&path)?;
         } else if !path.is_dir() {
             return Err(std::io::Error::new(std::io::ErrorKind::AddrInUse, "path is a file"));
         }
-        let path_buf = path.to_path_buf();
-        Ok(ObjectDB { path: path_buf })
+        Ok(ObjectDB { path: path })
     }
 
     /// Store object in database
