@@ -22,7 +22,7 @@ export const FlashCardPage = () => {
   useEffect(() => {invoke<Card[]>('open_card_file', {filePath: filePath}).then((c:Card[]) => {
     setCards(c);
   }
-  )});
+  )}, []);
   return (
     <FlashCardDeck cards={cards}/>
   );
@@ -38,9 +38,12 @@ const FlashCardDeck: React.FC<FlashCardDeckProps> = ({ cards }) => {
     setCurrentIndex(prev => (prev + 1) % cards.length);  
     setLocalShowBack(false); // Force hide the answer when switching  
   };  
+  if (cards.length == 0) {
+    return (<></>);
+  }
 
   // Get the current card content  
-  const currentCard = cards[currentIndex] || ['', ''];  
+  const currentCard = cards[currentIndex];  
 
   return (  
     <div className="deck-container">  
@@ -52,8 +55,7 @@ const FlashCardDeck: React.FC<FlashCardDeckProps> = ({ cards }) => {
       {/* Use key to force reset child component state */}  
       <FlipCard   
         key={currentIndex}  // Key: Reset internal state via key change  
-        front={currentCard.front}
-        back={currentCard.back}  
+        card={currentCard}
       />  
 
       {/* Next button */}  
@@ -69,11 +71,10 @@ const FlashCardDeck: React.FC<FlashCardDeckProps> = ({ cards }) => {
 };  
 
 interface FlashCardProps {
-  front: string;
-  back: string;
+  card: Card;
 }
 
-export const FlipCard = ({ front, back}: FlashCardProps) => {
+const FlipCard = ({card}: FlashCardProps) => {
   const [showBack, setShowBack] = useState(false);
   const onRate = (score: number) => {
 
@@ -99,7 +100,7 @@ export const FlipCard = ({ front, back}: FlashCardProps) => {
     <div className="flip-card">
       <div 
         className="front-content"
-        dangerouslySetInnerHTML={{ __html: front }}
+        dangerouslySetInnerHTML={{ __html: card.front }}
       />
       
       <button 
@@ -113,7 +114,7 @@ export const FlipCard = ({ front, back}: FlashCardProps) => {
         <div>
           <div 
             className="back-content"
-            dangerouslySetInnerHTML={{ __html: back }}
+            dangerouslySetInnerHTML={{ __html: card.back }}
             style={{ marginTop: '10px', borderTop: '1px solid #ccc', paddingTop: '10px' }}
           />
           <div style={{ 

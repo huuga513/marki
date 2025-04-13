@@ -13,7 +13,7 @@ function App() {
         setReason(s);
         setInitSucc(false);
       });
-  });
+  }, []);
   if (!initSucc) {
     return (
       <h1>Failed to init, {reason}</h1>
