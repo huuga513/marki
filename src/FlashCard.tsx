@@ -73,8 +73,27 @@ interface FlashCardProps {
   back: string;
 }
 
-const FlipCard = ({ front, back }: FlashCardProps) => {
+export const FlipCard = ({ front, back}: FlashCardProps) => {
   const [showBack, setShowBack] = useState(false);
+  const onRate = (score: number) => {
+
+  };
+
+  // Shared callback handler for all rating buttons
+  const handleRate = (score: number) => {
+    // Add any common logic here before calling onRate
+    onRate(score);
+    // Add any common logic here after calling onRate
+  };
+
+  const ratingLabels = {
+    5: 'Perfect Response',
+    4: 'Correct after Hesitation',
+    3: 'Correct with Difficulty',
+    2: 'Incorrect; Easy Recall',
+    1: 'Incorrect; Correct Remembered',
+    0: 'Blackout',
+  };
 
   return (
     <div className="flip-card">
@@ -91,11 +110,34 @@ const FlipCard = ({ front, back }: FlashCardProps) => {
       </button>
 
       {showBack && (
-        <div 
-          className="back-content"
-          dangerouslySetInnerHTML={{ __html: back }}
-          style={{ marginTop: '10px', borderTop: '1px solid #ccc', paddingTop: '10px' }}
-        />
+        <div>
+          <div 
+            className="back-content"
+            dangerouslySetInnerHTML={{ __html: back }}
+            style={{ marginTop: '10px', borderTop: '1px solid #ccc', paddingTop: '10px' }}
+          />
+          <div style={{ 
+            display: 'flex', 
+            flexWrap: 'wrap', 
+            gap: '8px', 
+            marginTop: '10px',
+            justifyContent: 'center'
+          }}>
+            {([0, 1, 2, 3, 4, 5]).map((score:number) => (
+              <button
+                key={score}
+                onClick={() => handleRate(score)}
+                style={{
+                  padding: '8px 12px',
+                  fontSize: '14px',
+                  cursor: 'pointer',
+                }}
+              >
+                {ratingLabels[score as 5|4|3|2|1|0]} ({score})
+              </button>
+            ))}
+          </div>
+        </div>
       )}
     </div>
   );
