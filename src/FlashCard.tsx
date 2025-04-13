@@ -2,9 +2,14 @@ import { useEffect, useState } from "react";
 import { useLocation } from 'react-router-dom';
 import { invoke } from "@tauri-apps/api/core";
 
+interface Card {
+  hash: string;
+  front: string;
+  back: string;
+}
 // New parent component wrapper  
 interface FlashCardDeckProps {  
-  cards: Array<[string, string]>; // Data structure for the card deck  
+  cards: Array<Card>; // Data structure for the card deck  
 }  
 
 export const FlashCardPage = () => {
@@ -13,8 +18,8 @@ export const FlashCardPage = () => {
   if (filePath == null) {
     return (<h1>Error</h1>);
   }
-  const [cards, setCards] = useState<[string,string][]>([]);
-  useEffect(() => {invoke<[string, string][]>('open_card_file', {filePath: filePath}).then((c:[string,string][]) => {
+  const [cards, setCards] = useState<Card[]>([]);
+  useEffect(() => {invoke<Card[]>('open_card_file', {filePath: filePath}).then((c:Card[]) => {
     setCards(c);
   }
   )});
@@ -47,8 +52,8 @@ const FlashCardDeck: React.FC<FlashCardDeckProps> = ({ cards }) => {
       {/* Use key to force reset child component state */}  
       <FlipCard   
         key={currentIndex}  // Key: Reset internal state via key change  
-        front={currentCard[0]}  
-        back={currentCard[1]}  
+        front={currentCard.front}
+        back={currentCard.back}  
       />  
 
       {/* Next button */}  

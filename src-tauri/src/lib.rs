@@ -1,9 +1,9 @@
 use chrono::{Datelike, TimeZone, Utc};
 use fancy_regex::Regex;
-use rusqlite::{params, Connection, Result};
+use rusqlite::{params, params_from_iter, Connection, Result};
 use serde::Serialize;
 use sha2::{Digest, Sha256};
-use std::{fs::File, io::Read};
+use std::{collections::HashMap, fs::File, io::Read};
 const DB_NAME: &str = "marki.db";
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -17,7 +17,7 @@ pub fn run() {
 
 #[tauri::command]
 fn greet() -> Result<(), String> {
-    let conn = Connection::open("marki.db").map_err(|why| why.to_string())?;
+    let conn = Connection::open(DB_NAME).map_err(|why| why.to_string())?;
     conn.execute(
         "
     CREATE TABLE IF NOT EXISTS cards (
@@ -51,7 +51,8 @@ fn today_timestamp() -> i64 {
     timestamp
 }
 
-struct Hash(String);
+type Hash = String;
+#[derive(Serialize)]
 struct Card {
     hash: Hash,
     front: String,
@@ -66,7 +67,7 @@ impl Card {
         hasher.update(front);
         hasher.update(back);
         let hash = hasher.finalize();
-        let hash = Hash(hex::encode(hash));
+        let hash = hex::encode(hash);
         Card {
             hash: hash,
             front: front.to_owned(),
@@ -77,7 +78,7 @@ impl Card {
 
 #[tauri::command]
 /* Open a card file, returns cards should be reviewed today */
-fn open_card_file(file_path: &str) -> Result<Vec<(String, String)>, String> {
+fn open_card_file(file_path: &str) -> Result<Vec<Card>, String> {
     let mut file = File::open(file_path).map_err(|why| why.to_string())?;
     let mut contents = String::new();
     file.read_to_string(&mut contents)
@@ -85,11 +86,64 @@ fn open_card_file(file_path: &str) -> Result<Vec<(String, String)>, String> {
     let contents = contents.replace("\r\n", "\n");
     let qas = extract_qa(&contents).map_err(|why| why.to_string())?;
     let cards: Vec<Card> = qas
-        .iter()
-        .map(|qa: &(String, String)| Card::new(&qa.0, &qa.1))
+        .into_iter()
+        .map(|qa: (String, String)| Card::new(qa.0, qa.1))
+        .collect();
+    let cards = insert_and_fetch_db(cards)?;
+    Ok(cards)
+}
+
+fn insert_and_fetch_db(cards: Vec<Card>) -> Result<Vec<Card>, String> {
+    let conn = Connection::open(DB_NAME).map_err(|why| why.to_string())?;
+    insert_new_cards(&conn, &cards).map_err(|_|{"Failed to insert cards.".to_string()})?;
+    let cards = fetch_review_cards(&conn, cards)?;
+    Ok(cards)
+}
+
+fn fetch_review_cards(
+    conn: &Connection,
+    cards: Vec<Card>,
+) -> Result<Vec<Card>, String> {
+    // 若输入卡片为空，直接返回空 Vec
+    if cards.is_empty() {
+        return Ok(Vec::new());
+    }
+    let now_timestamp = Utc::now().timestamp();
+
+    // 1. 提取所有卡片的 sha 值
+    let shas: Vec<&str> = cards.iter().map(|c| c.hash.as_str()).collect();
+
+    // 2. 构建 SQL 查询，批量获取 sha 对应的 due 值
+    let placeholders = vec!["?"; shas.len()].join(",");
+    let query = format!("SELECT sha, due FROM cards WHERE sha IN ({})", placeholders);
+
+    // 3. 执行查询并映射结果到 HashMap
+    let params = params_from_iter(shas.iter().map(|s| s as &dyn rusqlite::ToSql));
+    let mut stmt = conn.prepare(&query).map_err(|e| e.to_string())?;
+    let rows = stmt
+        .query_map(params, |row| {
+            Ok((row.get::<_, String>(0)?, row.get::<_, i64>(1)?))
+        })
+        .map_err(|e| e.to_string())?;
+
+    let mut due_map = HashMap::new();
+    for row in rows {
+        let (sha, due) = row.map_err(|e| e.to_string())?;
+        due_map.insert(sha, due);
+    }
+
+    // 4. 筛选符合条件的卡片（due > today_timestamp）
+    let result = cards
+        .into_iter()
+        .filter(|card| {
+            due_map
+                .get(&card.hash)
+                .map(|due| *due < now_timestamp)
+                .unwrap_or(false) // 若 sha 不在表中，视为不满足条件
+        })
         .collect();
 
-    Ok(qas)
+    Ok(result)
 }
 
 fn insert_new_cards(conn: &Connection, cards: &[Card]) -> Result<()> {
@@ -107,7 +161,7 @@ fn insert_new_cards(conn: &Connection, cards: &[Card]) -> Result<()> {
 
     for card in cards {
         stmt.execute(params![
-            card.hash.0,        // SHA256 必须为 64 字符字符串
+            card.hash,        // SHA256 必须为 64 字符字符串
             rep_init,
             factor_init,
             interval_init,
