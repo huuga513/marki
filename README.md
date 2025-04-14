@@ -32,4 +32,9 @@ CREATE TABLE cards {
 ```
 
 ## Plans
-- Add history in front page
+- ~~Add history in front page~~(done)
+- Add cache to load card process, only scans files that changed
+- Use multiple threads to load cards.
+- Add sparation line between card front and back.
+- Support rendering image in markdown
+- ~~render block correctly~~(done)

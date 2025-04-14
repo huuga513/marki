@@ -114,3 +114,13 @@ button {
     background-color: #0f0f0f69;
   }
 }
+
+pre code {
+  text-align: left !important;  /* Force left alignment */
+  display: block;               /* Treat as a standalone block-level element */
+  margin: 0;
+  padding: 1em;
+  overflow-x: auto;             /* Enable horizontal scrolling for long code */
+  white-space: pre;             /* Preserve original line breaks and indentation */
+  font-family: monospace;       /* Use a consistent monospace font */
+}
