@@ -13,6 +13,7 @@ const DB_DIR: &str = "datas";
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        .plugin(tauri_plugin_store::Builder::new().build())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
         .invoke_handler(tauri::generate_handler![
@@ -196,15 +197,19 @@ impl Card {
 
 #[tauri::command]
 fn open_card_dir(dir: &str) -> Result<Vec<Card>, String> {
-    let mut cards:Vec<Card> = Vec::new();
+    let mut cards: Vec<Card> = Vec::new();
     for entry in WalkDir::new(dir)
         .into_iter()
         .filter_map(|e| e.ok())
         .filter(|f| f.path().extension().map(|ext| ext == "md").unwrap_or(false))
     {
-       match open_card_file(entry.path()) {
-            Ok(c) => {cards.extend(c.into_iter());}
-            Err(why) => {panic!("{why}");}
+        match open_card_file(entry.path()) {
+            Ok(c) => {
+                cards.extend(c.into_iter());
+            }
+            Err(why) => {
+                panic!("{why}");
+            }
         }
     }
     Ok(cards)

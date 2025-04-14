@@ -30,4 +30,5 @@ rusqlite = { version = "0.34.0", features = ["bundled"] }
 hex = "0.4.3"
 tempfile = "3.19.1"
 walkdir = "2.5.0"
+tauri-plugin-store = "2"
 
