@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useLocation, useNavigate } from 'react-router-dom';
 import { invoke } from "@tauri-apps/api/core";
+import ReactMarkdown from 'react-markdown'
 
 interface Card {
   hash: string;
@@ -124,11 +125,9 @@ const FlipCard = ({ card, setShouldNext }: FlashCardProps) => {
 
   return (
     <div className="flip-card">
-      <div
-        className="front-content"
-        dangerouslySetInnerHTML={{ __html: card.front }}
-      />
-
+      <ReactMarkdown>
+        {card.front}
+      </ReactMarkdown>
       {!showBack &&
         <button
           onClick={() => setShowBack(!showBack)}
@@ -140,11 +139,9 @@ const FlipCard = ({ card, setShouldNext }: FlashCardProps) => {
 
       {showBack && (
         <div>
-          <div
-            className="back-content"
-            dangerouslySetInnerHTML={{ __html: card.back }}
-            style={{ marginTop: '10px', borderTop: '1px solid #ccc', paddingTop: '10px' }}
-          />
+          <ReactMarkdown>
+            {card.back}
+          </ReactMarkdown>
           <div style={{
             display: 'flex',
             flexWrap: 'wrap',
