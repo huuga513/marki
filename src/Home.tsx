@@ -76,7 +76,6 @@ const FileHistoryList = () => {
           <HistoryItem path={path} index={index} noticeParent={setHistoryChanged} />
         ))}
       </div>
-      <div>More...</div>
     </div>
   );
 };
