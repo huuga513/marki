@@ -1,4 +1,4 @@
-use chrono::{Datelike, TimeZone, Utc};
+use chrono::{Datelike, Local, TimeZone};
 use fancy_regex::Regex;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use serde_json::json;
@@ -135,7 +135,7 @@ fn calculate_new_status(prev: CardStatus, quality: u32) -> CardStatus {
     let factor = factor.max(1.3);
 
     // Calculate new due date (current time + new interval in days)
-    let due = prev.due + (interval as i64) * 60 * 60 * 24;
+    let due = today_timestamp() + (interval as i64) * 60 * 60 * 24;
 
     CardStatus {
         repetitions: reps,
@@ -157,13 +157,13 @@ fn update_card_status(hash: Hash, quality: u32) -> Result<(), String> {
     Ok(())
 }
 fn today_timestamp() -> i64 {
-    let now = Utc::now();
+    let now = Local::now();
 
     let year = now.year();
     let month = now.month();
     let day = now.day();
 
-    let today_midnight = Utc.with_ymd_and_hms(year, month, day, 0, 0, 0).unwrap();
+    let today_midnight = Local.with_ymd_and_hms(year, month, day, 0, 0, 0).unwrap();
 
     let timestamp = today_midnight.timestamp();
     timestamp
@@ -236,7 +236,7 @@ fn fetch_review_cards(cards: Vec<Card>) -> Result<Vec<Card>, String> {
     if cards.is_empty() {
         return Ok(Vec::new());
     }
-    let now_timestamp = Utc::now().timestamp();
+    let now_timestamp = Local::now().timestamp();
     let obj_db = ObjectDB::new(Path::new(DB_DIR)).map_err(|e| e.to_string())?;
 
     let result = cards
