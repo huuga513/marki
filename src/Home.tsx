@@ -25,6 +25,18 @@ const getFileHistory = async (): Promise<string[]> => {
   return data?.history || []; // Already sorted from newest to oldest  
 };
 
+const deleteFileHistory = async (path: string) => {
+  // Read existing history record  
+  const current = await store.get<{ history: string[] }>("fileHistory");
+  let history = current?.history || [];
+
+  // Deduplicate and adjust position  
+  history = history.filter(p => p !== path); // Remove old position (if exists)  
+  // Write updates  
+  await store.set("fileHistory", { history });
+  await store.save();
+}
+
 const navigateToFlashCardPage = async (navigate: NavigateFunction, path: string) => {
   await addFileHistory(path);
   navigate('flash-card-deck', {
@@ -36,6 +48,7 @@ const navigateToFlashCardPage = async (navigate: NavigateFunction, path: string)
 
 const FileHistoryList = () => {
   const [history, setHistory] = useState<string[]>([]);
+  const [historyChangedVal, setHistoryChangedVal] = useState<boolean>(false);
 
   // Load history from store
   useEffect(() => {
@@ -44,8 +57,12 @@ const FileHistoryList = () => {
       setHistory(data.slice(0, 5) || []);
     };
     loadHistory();
-  }, []);
+    setHistoryChangedVal(false);
+  }, [historyChangedVal]);
 
+  const setHistoryChanged = () => {
+    setHistoryChangedVal(true);
+  }
 
   return (
     <div>
@@ -56,7 +73,7 @@ const FileHistoryList = () => {
         alignItems: 'center',
       }}>
         {history.map((path, index) => (
-          <HistoryItem path={path} index={index} onDelete={0}/>
+          <HistoryItem path={path} index={index} noticeParent={setHistoryChanged} />
         ))}
       </div>
       <div>More...</div>
@@ -67,10 +84,10 @@ const FileHistoryList = () => {
 interface HistoryItemProps {
   path: string;
   index: number;
-  onDelete: number
+  noticeParent: ()=>void;
 };
 
-const HistoryItem = ({ path, index, onDelete }: HistoryItemProps) => {
+const HistoryItem = ({ path, index, noticeParent }: HistoryItemProps) => {
   const [isHovered, setIsHovered] = useState(false);
   let navigate = useNavigate();
 
@@ -83,12 +100,20 @@ const HistoryItem = ({ path, index, onDelete }: HistoryItemProps) => {
     return segments[segments.length - 1] || path;
   };
 
+  const deletePath = async () => {
+    await deleteFileHistory(path);
+    noticeParent();
+  }
+
   return (
     <div key={index} style={{
       display: 'flex',       // 启用 Flex 布局
       alignItems: 'center', // 垂直居中
       gap: 8                // 元素间距（可选）
-    }}>
+    }}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+    >
       {/* 可点击的 Display Name */}
       <a
         href="#"
@@ -115,7 +140,32 @@ const HistoryItem = ({ path, index, onDelete }: HistoryItemProps) => {
       }}>
         {path}
       </div>
+      {isHovered && (
+        <DeleteHistoryItemButton onClick={deletePath} />
+      )}
     </div>
+  )
+}
+
+interface DeleteHistoryItemButtonProps {
+  onClick: () => void
+}
+
+const DeleteHistoryItemButton = ({ onClick }: DeleteHistoryItemButtonProps) => {
+  return (
+    <button
+      style={{
+        right: 0,
+        background: 'none',
+        border: 'none',
+        cursor: 'pointer',
+        fontSize: 16,
+        padding: '0 4px',
+      }}
+      onClick={onClick}
+    >
+      ×
+    </button>
   )
 }
 
