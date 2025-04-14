@@ -64,22 +64,20 @@ const FileHistoryList = () => {
         {history.map((path, index) => (
           <div key={index} style={{ marginBottom: 8 }}>
             {/* 无边框按钮样式 */}
-            <button
+            <a
+              href="#" // 如果是路由链接可替换为 <Link to=...>
               style={{
-                border: 'none',
-                background: 'none',
-                padding: 0,
-                color: '#007bff', // 链接蓝色
+                textDecoration: 'none',
+                color: 'blue',
                 cursor: 'pointer',
-                fontSize: 'inherit', // 继承父级字号
-                fontFamily: 'inherit', // 继承父级字体
-                textAlign: 'left', // 左对齐
               }}
-              onClick={() => handlePathAction(path)}
+              onClick={(e) => {
+                e.preventDefault(); // 阻止链接默认行为
+                handlePathAction(path);
+              }}
             >
               {getDisplayName(path)}
-            </button>
-
+            </a>
             {/* Path 显示 */}
             <div style={{
               color: '#666',
