@@ -37,12 +37,6 @@ const navigateToFlashCardPage = async (navigate: NavigateFunction, path: string)
 const FileHistoryList = () => {
   const [history, setHistory] = useState<string[]>([]);
 
-  // Extract the last segment of the path as the display name
-  const getDisplayName = (path: string) => {
-    const segments = path.split(/[\\/]/).filter(Boolean);
-    return segments[segments.length - 1] || path;
-  };
-
   // Load history from store
   useEffect(() => {
     const loadHistory = async () => {
@@ -52,11 +46,6 @@ const FileHistoryList = () => {
     loadHistory();
   }, []);
 
-  let navigate = useNavigate();
-
-  const handlePathAction = async (path: string) => {
-    await navigateToFlashCardPage(navigate, path);
-  }
 
   return (
     <div>
@@ -67,44 +56,68 @@ const FileHistoryList = () => {
         alignItems: 'center',
       }}>
         {history.map((path, index) => (
-          <div key={index} style={{
-            display: 'flex',       // 启用 Flex 布局
-            alignItems: 'center', // 垂直居中
-            gap: 8                // 元素间距（可选）
-          }}>
-            {/* 可点击的 Display Name */}
-            <a
-              href="#"
-              style={{
-                textDecoration: 'none',
-                color: 'RoyalBlue',
-                cursor: 'pointer',
-                whiteSpace: 'nowrap' // 防止文字换行
-              }}
-              onClick={(e) => {
-                e.preventDefault();
-                handlePathAction(path);
-              }}
-            >
-              {getDisplayName(path)}
-            </a>
-
-            {/* Path 显示（同行右侧） */}
-            <div style={{
-              color: '#666',
-              fontSize: 12,
-              overflow: 'hidden',   // 处理长路径
-              textOverflow: 'ellipsis' // 超长时显示省略号
-            }}>
-              {path}
-            </div>
-          </div>
+          <HistoryItem path={path} index={index} onDelete={0}/>
         ))}
       </div>
       <div>More...</div>
     </div>
   );
 };
+
+interface HistoryItemProps {
+  path: string;
+  index: number;
+  onDelete: number
+};
+
+const HistoryItem = ({ path, index, onDelete }: HistoryItemProps) => {
+  const [isHovered, setIsHovered] = useState(false);
+  let navigate = useNavigate();
+
+  const handlePathAction = async (path: string) => {
+    await navigateToFlashCardPage(navigate, path);
+  }
+  // Extract the last segment of the path as the display name
+  const getDisplayName = (path: string) => {
+    const segments = path.split(/[\\/]/).filter(Boolean);
+    return segments[segments.length - 1] || path;
+  };
+
+  return (
+    <div key={index} style={{
+      display: 'flex',       // 启用 Flex 布局
+      alignItems: 'center', // 垂直居中
+      gap: 8                // 元素间距（可选）
+    }}>
+      {/* 可点击的 Display Name */}
+      <a
+        href="#"
+        style={{
+          textDecoration: 'none',
+          color: 'RoyalBlue',
+          cursor: 'pointer',
+          whiteSpace: 'nowrap' // 防止文字换行
+        }}
+        onClick={(e) => {
+          e.preventDefault();
+          handlePathAction(path);
+        }}
+      >
+        {getDisplayName(path)}
+      </a>
+
+      {/* Path 显示（同行右侧） */}
+      <div style={{
+        color: '#666',
+        fontSize: 12,
+        overflow: 'hidden',   // 处理长路径
+        textOverflow: 'ellipsis' // 超长时显示省略号
+      }}>
+        {path}
+      </div>
+    </div>
+  )
+}
 
 
 const FileSelectButton = () => {
