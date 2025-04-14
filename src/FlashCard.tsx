@@ -8,9 +8,9 @@ interface Card {
   back: string;
 }
 // New parent component wrapper  
-interface FlashCardDeckProps {  
+interface FlashCardDeckProps {
   cards: Array<Card>; // Data structure for the card deck  
-}  
+}
 
 function NoCardsMessage() {
   const navigate = useNavigate();
@@ -18,7 +18,7 @@ function NoCardsMessage() {
   return (
     <div>
       <h2>There are no cards to study today.</h2>
-      <button 
+      <button
         onClick={() => navigate('/')}
       >
         Back
@@ -29,28 +29,41 @@ function NoCardsMessage() {
 
 export const FlashCardPage = () => {
   const location = useLocation();
-  const {dir} = location.state || {};
-  if (dir == null) {
-    return (<h1>Error</h1>);
-  }
+  const { dir } = location.state || {};
   const [cards, setCards] = useState<Card[]>([]);
-  useEffect(() => {invoke<Card[]>('open_card_dir', {dir: dir}).then((c:Card[]) => {
-    setCards(c);
+  const [isLoading, setIsLoading] = useState(true); // New loading state added
+
+  useEffect(() => {
+    if (dir) { // Ensure loading only occurs if dir exists
+      invoke<Card[]>('open_card_dir', { dir })
+        .then((c: Card[]) => {
+          setCards(c);
+        })
+        .finally(() => {
+          setIsLoading(false); // Update loading state regardless of success or failure
+        });
+    }
+  }, [dir]); // Add dir as a dependency
+
+  if (dir == null) {
+    return <h1>Error</h1>;
   }
-  )}, []);
-  return (
-    <FlashCardDeck cards={cards}/>
-  );
+
+  if (isLoading) {
+    return <h2>Loading cards...</h2>;
+  }
+
+  return <FlashCardDeck cards={cards} />;
 }
-const FlashCardDeck: React.FC<FlashCardDeckProps> = ({ cards }) => {  
-  const [currentIndex, setCurrentIndex] = useState<number>(0);  
+const FlashCardDeck: React.FC<FlashCardDeckProps> = ({ cards }) => {
+  const [currentIndex, setCurrentIndex] = useState<number>(0);
   const [shouldNext, setShouldNext] = useState<boolean>(false);
 
   // Handle switching to the next card  
-  if (shouldNext) {  
-    setCurrentIndex(prev => (prev + 1));  
+  if (shouldNext) {
+    setCurrentIndex(prev => (prev + 1));
     setShouldNext(false);
-  };  
+  };
 
   if (currentIndex >= cards.length) {
     return (
@@ -58,32 +71,32 @@ const FlashCardDeck: React.FC<FlashCardDeckProps> = ({ cards }) => {
     );
   }
   // Get the current card content  
-  const currentCard = cards[currentIndex];  
+  const currentCard = cards[currentIndex];
 
-  return (  
-    <div className="deck-container">  
-      {/* Card position indicator */}  
-      <div className="counter">  
-        Card {cards.length > 0 ? currentIndex + 1 : 0} / {cards.length}  
-      </div>  
+  return (
+    <div className="deck-container">
+      {/* Card position indicator */}
+      <div className="counter">
+        Card {cards.length > 0 ? currentIndex + 1 : 0} / {cards.length}
+      </div>
 
-      {/* Use key to force reset child component state */}  
-      <FlipCard   
+      {/* Use key to force reset child component state */}
+      <FlipCard
         key={currentIndex}  // Key: Reset internal state via key change  
         card={currentCard}
         setShouldNext={setShouldNext}
-      />  
+      />
 
-    </div>  
-  );  
-};  
+    </div>
+  );
+};
 
 interface FlashCardProps {
   card: Card;
   setShouldNext: React.Dispatch<React.SetStateAction<boolean>>
 }
 
-const FlipCard = ({card, setShouldNext}: FlashCardProps) => {
+const FlipCard = ({ card, setShouldNext }: FlashCardProps) => {
   const [showBack, setShowBack] = useState(false);
   const onRate = (score: number) => {
     invoke('update_card_status', {
@@ -111,13 +124,13 @@ const FlipCard = ({card, setShouldNext}: FlashCardProps) => {
 
   return (
     <div className="flip-card">
-      <div 
+      <div
         className="front-content"
         dangerouslySetInnerHTML={{ __html: card.front }}
       />
-      
+
       {!showBack &&
-        <button 
+        <button
           onClick={() => setShowBack(!showBack)}
           style={{ margin: '10px 0' }}
         >
@@ -127,19 +140,19 @@ const FlipCard = ({card, setShouldNext}: FlashCardProps) => {
 
       {showBack && (
         <div>
-          <div 
+          <div
             className="back-content"
             dangerouslySetInnerHTML={{ __html: card.back }}
             style={{ marginTop: '10px', borderTop: '1px solid #ccc', paddingTop: '10px' }}
           />
-          <div style={{ 
-            display: 'flex', 
-            flexWrap: 'wrap', 
-            gap: '8px', 
+          <div style={{
+            display: 'flex',
+            flexWrap: 'wrap',
+            gap: '8px',
             marginTop: '10px',
             justifyContent: 'center'
           }}>
-            {([0, 1, 2, 3, 4, 5]).map((score:number) => (
+            {([0, 1, 2, 3, 4, 5]).map((score: number) => (
               <button
                 key={score}
                 onClick={() => handleRate(score)}
@@ -149,7 +162,7 @@ const FlipCard = ({card, setShouldNext}: FlashCardProps) => {
                   cursor: 'pointer',
                 }}
               >
-                {ratingLabels[score as 5|4|3|2|1|0]} ({score})
+                {ratingLabels[score as 5 | 4 | 3 | 2 | 1 | 0]} ({score})
               </button>
             ))}
           </div>
