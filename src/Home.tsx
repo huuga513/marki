@@ -25,7 +25,8 @@ const getFileHistory = async (): Promise<string[]> => {
   return data?.history || []; // Already sorted from newest to oldest  
 };
 
-const navigateToFlashCardPage = (navigate: NavigateFunction, path: string) => {
+const navigateToFlashCardPage = async (navigate: NavigateFunction, path: string) => {
+  await addFileHistory(path);
   navigate('flash-card-deck', {
     state: {
       dir: path
@@ -53,36 +54,47 @@ const FileHistoryList = () => {
 
   let navigate = useNavigate();
 
-  const handlePathAction = (path: string) => {
-    navigateToFlashCardPage(navigate, path);
+  const handlePathAction = async (path: string) => {
+    await navigateToFlashCardPage(navigate, path);
   }
 
   return (
     <div>
       <h2>Recent</h2>
-      <div>
+      <div style={{
+        display: "flex",
+        flexDirection: "column",
+        alignItems: 'center',
+      }}>
         {history.map((path, index) => (
-          <div key={index} style={{ marginBottom: 8 }}>
-            {/* 无边框按钮样式 */}
+          <div key={index} style={{
+            display: 'flex',       // 启用 Flex 布局
+            alignItems: 'center', // 垂直居中
+            gap: 8                // 元素间距（可选）
+          }}>
+            {/* 可点击的 Display Name */}
             <a
-              href="#" // 如果是路由链接可替换为 <Link to=...>
+              href="#"
               style={{
                 textDecoration: 'none',
-                color: 'blue',
+                color: 'RoyalBlue',
                 cursor: 'pointer',
+                whiteSpace: 'nowrap' // 防止文字换行
               }}
               onClick={(e) => {
-                e.preventDefault(); // 阻止链接默认行为
+                e.preventDefault();
                 handlePathAction(path);
               }}
             >
               {getDisplayName(path)}
             </a>
-            {/* Path 显示 */}
+
+            {/* Path 显示（同行右侧） */}
             <div style={{
               color: '#666',
               fontSize: 12,
-              marginTop: 2 // 与按钮保持间距
+              overflow: 'hidden',   // 处理长路径
+              textOverflow: 'ellipsis' // 超长时显示省略号
             }}>
               {path}
             </div>
@@ -106,8 +118,7 @@ const FileSelectButton = () => {
       const filePath = await selectFile();
 
       if (filePath) {
-        await addFileHistory(filePath);
-        navigateToFlashCardPage(navgiate, filePath);
+        await navigateToFlashCardPage(navgiate, filePath);
 
       } else {
         console.log('用户取消选择');
