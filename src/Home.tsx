@@ -1,9 +1,10 @@
 import { useEffect, useState } from "react";
 import { open } from '@tauri-apps/plugin-dialog';
 import { NavigateFunction, useNavigate } from "react-router-dom";
-import { load } from '@tauri-apps/plugin-store';
-const store = await load('store.json', { autoSave: false });
+import { LazyStore } from '@tauri-apps/plugin-store';
 
+const storeFileName = 'store.json';
+const store = new LazyStore(storeFileName);
 // Add file path to history record  
 const addFileHistory = async (filePath: string) => {
   // Read existing history record  
