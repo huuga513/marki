@@ -2,6 +2,9 @@ import { useEffect, useState } from "react";
 import { useLocation, useNavigate } from 'react-router-dom';
 import { invoke } from "@tauri-apps/api/core";
 import ReactMarkdown from 'react-markdown'
+import rehypeKatex from 'rehype-katex'
+import remarkMath from 'remark-math'
+import 'katex/dist/katex.min.css' // `rehype-katex` does not import the CSS
 
 interface Card {
   hash: string;
@@ -125,7 +128,7 @@ const FlipCard = ({ card, setShouldNext }: FlashCardProps) => {
 
   return (
     <div className="flip-card">
-      <ReactMarkdown>
+      <ReactMarkdown remarkPlugins={[remarkMath]} rehypePlugins={[rehypeKatex]}>
         {card.front}
       </ReactMarkdown>
       {!showBack &&
@@ -139,7 +142,7 @@ const FlipCard = ({ card, setShouldNext }: FlashCardProps) => {
 
       {showBack && (
         <div>
-          <ReactMarkdown>
+          <ReactMarkdown remarkPlugins={[remarkMath]} rehypePlugins={[rehypeKatex]}>
             {card.back}
           </ReactMarkdown>
           <div style={{
