@@ -1,29 +1,37 @@
 import { useEffect, useState } from "react";
 import { open } from '@tauri-apps/plugin-dialog';
-import { useNavigate } from "react-router-dom";
+import { NavigateFunction, useNavigate } from "react-router-dom";
 import { load } from '@tauri-apps/plugin-store';
 const store = await load('store.json', { autoSave: false });
 
 // Add file path to history record  
-const addFileHistory = async (filePath: string) => {  
+const addFileHistory = async (filePath: string) => {
   // Read existing history record  
-  const current = await store.get<{ history: string[] }>("fileHistory");  
-  let history = current?.history || [];  
+  const current = await store.get<{ history: string[] }>("fileHistory");
+  let history = current?.history || [];
 
   // Deduplicate and adjust position  
   history = history.filter(path => path !== filePath); // Remove old position (if exists)  
   history = [filePath, ...history]; // Insert to the front of the array  
 
   // Write updates  
-  await store.set("fileHistory", { history });  
-  await store.save();  
-};  
+  await store.set("fileHistory", { history });
+  await store.save();
+};
 
 // Get sorted history record  
-const getFileHistory = async (): Promise<string[]> => {  
-  const data = await store.get<{ history: string[] }>("fileHistory");  
+const getFileHistory = async (): Promise<string[]> => {
+  const data = await store.get<{ history: string[] }>("fileHistory");
   return data?.history || []; // Already sorted from newest to oldest  
 };
+
+const navigateToFlashCardPage = (navigate: NavigateFunction, path: string) => {
+  navigate('flash-card-deck', {
+    state: {
+      dir: path
+    }
+  });
+}
 
 const FileHistoryList = () => {
   const [history, setHistory] = useState<string[]>([]);
@@ -38,121 +46,76 @@ const FileHistoryList = () => {
   useEffect(() => {
     const loadHistory = async () => {
       const data = await getFileHistory();
-      setHistory(data || []);
+      setHistory(data.slice(0, 5) || []);
     };
     loadHistory();
   }, []);
 
-  return (
-    <div style={styles.container}>
-      <h2 style={styles.title}>Recent</h2>
-      
-      <div style={styles.list}>
-        {history.map((path, index) => (
-          <div key={index} style={styles.listItem}>
-            <div style={styles.nameSection}>
-              <span style={styles.name}>
-                {getDisplayName(path)}
-              </span>
-            </div>
+  let navigate = useNavigate();
 
-            <div style={styles.pathSection}>
-                {path}
+  const handlePathAction = (path: string) => {
+    navigateToFlashCardPage(navigate, path);
+  }
+
+  return (
+    <div>
+      <h2>Recent</h2>
+      <div>
+        {history.map((path, index) => (
+          <div key={index} style={{ marginBottom: 8 }}>
+            {/* 无边框按钮样式 */}
+            <button
+              style={{
+                border: 'none',
+                background: 'none',
+                padding: 0,
+                color: '#007bff', // 链接蓝色
+                cursor: 'pointer',
+                fontSize: 'inherit', // 继承父级字号
+                fontFamily: 'inherit', // 继承父级字体
+                textAlign: 'left', // 左对齐
+              }}
+              onClick={() => handlePathAction(path)}
+            >
+              {getDisplayName(path)}
+            </button>
+
+            {/* Path 显示 */}
+            <div style={{
+              color: '#666',
+              fontSize: 12,
+              marginTop: 2 // 与按钮保持间距
+            }}>
+              {path}
             </div>
           </div>
         ))}
       </div>
-
-      <div style={styles.moreLink}>More...</div>
+      <div>More...</div>
     </div>
   );
 };
 
-// Maintain styles consistent with the image
-const styles = {
-  container: {
-    backgroundColor: '#1a1a1a',
-    color: 'white',
-    padding: '16px',
-    fontFamily: 'Consolas, monospace',
-    borderRadius: '6px',
-    maxWidth: '600px'
-  },
-  title: {
-    fontSize: '18px',
-    marginBottom: '12px',
-    fontWeight: 500,
-    borderBottom: '1px solid #333',
-    paddingBottom: '8px'
-  },
-  list: {
-    gap: '8px',
-    display: 'flex',
-    flexDirection: 'column' as const
-  },
-  listItem: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: '8px',
-    borderRadius: '4px',
-    '&:hover': {
-      backgroundColor: '#2d2d2d'
-    }
-  },
-  nameSection: {
-    minWidth: '120px'  // Maintain name alignment
-  },
-  name: {
-    color: '#4dabf7',
-    fontWeight: 500
-  },
-  pathSection: {
-    color: '#dee2e6',
-    maxWidth: '60%',
-    overflow: 'hidden',
-    textOverflow: 'ellipsis',
-    whiteSpace: 'nowrap' as const
-  },
-  moreLink: {
-    color: '#4dabf7',
-    cursor: 'pointer',
-    marginTop: '12px',
-    fontSize: '0.9em',
-    '&:hover': {
-      textDecoration: 'underline'
-    }
-  }
-};
 
 const FileSelectButton = () => {
-  const [selectedFile, setSelectedFile] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   let navgiate = useNavigate();
 
   const handleSelectFile = async () => {
     try {
       setIsLoading(true);
-      setError(null);
-      
+
       const filePath = await selectFile();
-      
+
       if (filePath) {
-        setSelectedFile(filePath);
         await addFileHistory(filePath);
-        navgiate('flash-card-deck', {
-          state: {
-            dir: filePath
-          }
-        });
+        navigateToFlashCardPage(navgiate, filePath);
 
       } else {
         console.log('用户取消选择');
       }
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : '文件选择失败';
-      setError(errorMessage);
       console.error('文件选择错误:', errorMessage);
     } finally {
       setIsLoading(false);
@@ -160,7 +123,7 @@ const FileSelectButton = () => {
   };
   return (
     <div className="file-selector">
-      <button 
+      <button
         onClick={handleSelectFile}
         disabled={isLoading}
         className="select-button"
@@ -169,7 +132,7 @@ const FileSelectButton = () => {
         {isLoading ? '选择中...' : '选择文件'}
       </button>
 
-      <FileHistoryList/>
+      <FileHistoryList />
     </div>
   );
 };
@@ -186,10 +149,10 @@ async function selectFile(): Promise<string | null> {
 }
 
 export function Home() {
-    return (
-        <>
-            <h1>Marki</h1>
-            <FileSelectButton />
-        </>
-    )
+  return (
+    <>
+      <h1>Marki</h1>
+      <FileSelectButton />
+    </>
+  )
 }
